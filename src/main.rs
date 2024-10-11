@@ -1,29 +1,43 @@
-use std::{env, error, fs, io, path::PathBuf, result};
+use std::{
+    env, error, fs, io,
+    path::{Path, PathBuf},
+    result,
+};
 
 use rusqlite::Connection;
 
 type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
+const ENV_VARIABLE: &str = "DATABASE_PATH";
 const DEFAULT_PATH: &str = "./database/axelrod.db";
 
-fn setup() -> Result<Connection> {
-    let env_var = env::var("DATABASE_PATH").unwrap_or_else(|_|{
+fn get_var() -> Result<String> {
+    env::var(ENV_VARIABLE).or_else(|_|{
         println!("Warning: The `DATABASE_PATH` environment variable is not set, {DEFAULT_PATH} will be used instead.");
-        DEFAULT_PATH.into()
-    });
-    let db_path = PathBuf::from(env_var);
-    let db_dir = &db_path.parent().ok_or(io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "Error: Invalid path to database",
-    ))?;
-    if !&db_path.exists() {
-        fs::create_dir_all(db_dir)?;
-        println!(
-            "Warning: database at {} does not exists, will be created.",
-            db_path.display()
-        );
+        Ok(DEFAULT_PATH.into())
+    })
+}
+
+fn create_at(path: &Path) -> Result<Connection> {
+    println!(
+        "Warning: database at {} does not exists, will be created.",
+        path.display()
+    );
+    let dir = path
+        .parent()
+        .ok_or(io::Error::from(io::ErrorKind::InvalidInput))?;
+    fs::create_dir_all(dir)?;
+    let conn = Connection::open(path)?;
+    conn.execute("VACUUM;", ())?;
+    Ok(conn)
+}
+
+fn setup() -> Result<Connection> {
+    let path = get_var().map(PathBuf::from)?;
+    if !&path.exists() {
+        create_at(&path)?;
     }
-    let conn = Connection::open(&db_path)?;
+    let conn = Connection::open(&path)?;
     Ok(conn)
 }
 
