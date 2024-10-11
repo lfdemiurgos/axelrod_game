@@ -32,13 +32,19 @@ fn create_at(path: &Path) -> Result<Connection> {
     Ok(conn)
 }
 
+fn validate(path: &Path) -> Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.pragma(None, "integrity_check", 1, |_| Ok(()))?;
+    Ok(conn)
+}
+
 fn setup() -> Result<Connection> {
     let path = get_var().map(PathBuf::from)?;
     if !&path.exists() {
-        create_at(&path)?;
+        create_at(&path)
+    } else {
+        validate(&path)
     }
-    let conn = Connection::open(&path)?;
-    Ok(conn)
 }
 
 fn main() -> Result<()> {
