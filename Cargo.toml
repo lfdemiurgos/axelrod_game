@@ -4,4 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+derive = { version = "0.1.0", path = "derive" }
 rusqlite = { version = "0.32.1", features = ["bundled"] }
