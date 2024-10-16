@@ -1,6 +1,26 @@
 use quote::quote;
 use syn::DeriveInput;
 
+#[derive(deluxe::ExtractAttributes, Default)]
+struct TableFieldAttributes {
+    primary_key: bool,
+    auto_increment: bool,
+    unique: bool,
+}
+
+impl TableFieldAttributes {
+    fn to_string(&self) -> String {
+        let primary_key = if self.primary_key { "PRIMARY KEY " } else { "" };
+        let auto_increment = if self.auto_increment {
+            "AUTOINCREMENT "
+        } else {
+            ""
+        };
+        let unique = if self.unique { "UNIQUE " } else { "" };
+        format!("{primary_key}{auto_increment}{unique}")
+    }
+}
+
 fn to_sql(ty: String) -> String {
     let mut is_option = false;
     let ty = match ty.as_str() {
@@ -31,11 +51,19 @@ pub fn impl_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         syn::Data::Struct(data) => data
             .fields
             .into_iter()
-            .filter_map(|field| field.ident.zip(Some(field.ty)))
-            .map(|(id, ty)| {
+            .filter_map(|mut field| {
+                let attrs: TableFieldAttributes = deluxe::extract_attributes(&mut field).unwrap();
+                if let Some(id) = field.ident {
+                    let ty = field.ty;
+                    return Some((id, ty, attrs));
+                }
+                None
+            })
+            .map(|(id, ty, attrs)| {
                 let id = id.to_string();
                 let ty = to_sql(quote! { #ty }.to_string());
-                format!("{id} {ty}")
+                let attrs = attrs.to_string();
+                format!("{id} {ty} {attrs}")
             })
             .collect::<Vec<String>>()
             .join(",\n"),
