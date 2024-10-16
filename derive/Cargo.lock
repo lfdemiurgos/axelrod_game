@@ -54,6 +54,7 @@ name = "derive"
 version = "0.1.0"
 dependencies = [
  "deluxe",
+ "proc-macro2",
  "quote",
  "syn",
 ]
